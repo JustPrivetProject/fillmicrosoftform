@@ -93,11 +93,10 @@ class AutoFillManager {
     }
 
     /**
-     * Update keyboard shortcut options based on OS
+     * Update keyboard shortcut options - use Ctrl+Alt+ as primary format
      */
     updateKeyboardShortcutOptions() {
         const shortcutSelect = document.getElementById('keyboardShortcut');
-        const altKey = this.osInfo.altKey;
         
         // Clear existing options
         shortcutSelect.innerHTML = '';
@@ -108,36 +107,36 @@ class AutoFillManager {
         noShortcutOption.textContent = 'Bez skrótu klawiszowego';
         shortcutSelect.appendChild(noShortcutOption);
         
-        // Add number shortcuts (0-9)
+        // Add number shortcuts (1-9) using Ctrl+Alt format
         for (let i = 1; i <= 9; i++) {
             const option = document.createElement('option');
-            option.value = `${altKey}+${i}`;
-            option.textContent = `${altKey}+${i}`;
+            option.value = `Ctrl+Alt+${i}`;
+            option.textContent = `Ctrl+Alt+${i}`;
             shortcutSelect.appendChild(option);
         }
         
         // Add 0
         const zeroOption = document.createElement('option');
-        zeroOption.value = `${altKey}+0`;
-        zeroOption.textContent = `${altKey}+0`;
+        zeroOption.value = `Ctrl+Alt+0`;
+        zeroOption.textContent = `Ctrl+Alt+0`;
         shortcutSelect.appendChild(zeroOption);
         
-        // Add letter shortcuts (Q-P)
+        // Add letter shortcuts (Q-P) using Ctrl+Alt format
         const letters = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'];
         letters.forEach(letter => {
             const option = document.createElement('option');
-            option.value = `${altKey}+${letter}`;
-            option.textContent = `${altKey}+${letter}`;
+            option.value = `Ctrl+Alt+${letter}`;
+            option.textContent = `Ctrl+Alt+${letter}`;
             shortcutSelect.appendChild(option);
         });
         
-        // Update the label to show the correct key
+        // Update the label to show the correct format
         const label = document.querySelector('label[for="keyboardShortcut"]');
         if (label) {
-            label.textContent = `Skrót klawiszowy (${altKey}+):`;
+            label.textContent = `Skrót klawiszowy (Ctrl+Alt+):`;
         }
         
-        console.log(`Updated keyboard shortcuts for ${this.osInfo.os} using ${altKey} key`);
+        console.log(`Updated keyboard shortcuts to use Ctrl+Alt+ format for all platforms`);
     }
     
     bindEvents() {
@@ -948,14 +947,10 @@ class AutoFillManager {
     }
 
     /**
-     * Show OS-specific welcome message
+     * Show welcome message about keyboard shortcuts
      */
     showOSWelcomeMessage() {
-        if (this.osInfo.isMac) {
-            this.showStatus(`🍎 AutoFill dostosowany dla Mac! Używaj ${this.osInfo.altKey} zamiast Alt dla profili.`, 'info');
-        } else {
-            this.showStatus(`💻 AutoFill działa na ${this.osInfo.os.toUpperCase()}! Skróty ${this.osInfo.altKey}+ są dostępne.`, 'info');
-        }
+        this.showStatus(`💻 AutoFill używa Ctrl+Alt+1,2,3... dla profili użytkownika na wszystkich platformach!`, 'info');
     }
     
     showConnectionError() {

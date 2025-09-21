@@ -1384,25 +1384,19 @@
             shortcut = `${modifier}+Shift+${e.key.toUpperCase()}`;
         }
         
-        // Handle user profile shortcuts - different approach for Mac vs Windows/Linux
-        if (OS_INFO.isMac) {
-            // On Mac: Use Option+key (metaKey is for Cmd)
-            if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.key.length === 1) {
-                shortcut = `Option+${e.key.toUpperCase()}`;
-            }
-            // Also support Cmd+Option+key for backward compatibility 
-            if (e.metaKey && e.altKey && e.key.length === 1) {
-                shortcut = `Cmd+Option+${e.key.toUpperCase()}`;
-            }
-        } else {
-            // On Windows/Linux: Use Alt+key 
-            if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.length === 1) {
-                shortcut = `Alt+${e.key.toUpperCase()}`;
-            }
-            // Handle legacy Ctrl+Alt+... for backward compatibility  
-            if (e.ctrlKey && e.altKey && e.key.length === 1) {
-                shortcut = `Ctrl+Alt+${e.key.toUpperCase()}`;
-            }
+        // Handle user profile shortcuts - use Ctrl+Alt+key for all platforms
+        if (e.ctrlKey && e.altKey && e.key.length === 1) {
+            shortcut = `Ctrl+Alt+${e.key.toUpperCase()}`;
+        }
+        
+        // Also support simpler Alt+key for backward compatibility
+        if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.length === 1) {
+            shortcut = `Alt+${e.key.toUpperCase()}`;
+        }
+        
+        // Mac compatibility: Support Cmd+Alt+key as equivalent to Ctrl+Alt+key
+        if (OS_INFO.isMac && e.metaKey && e.altKey && e.key.length === 1) {
+            shortcut = `Ctrl+Alt+${e.key.toUpperCase()}`;
         }
         
         if (shortcut) {
@@ -1449,13 +1443,12 @@
             animation: modalSlideIn 0.3s ease-out;
         `;
 
-        // Generate OS-specific shortcut text
+        // Generate shortcut text - using unified Ctrl+Alt format
         const modifier = OS_INFO.modifierKey;
-        const altKey = OS_INFO.altKey;
         
         overlay.innerHTML = `
             <div style="background: #667eea; color: white; padding: 20px; border-radius: 10px 10px 0 0; text-align: center;">
-                <h2 style="margin: 0; font-size: 18px;">Skróty klawiszowe AutoFill (${OS_INFO.os.toUpperCase()})</h2>
+                <h2 style="margin: 0; font-size: 18px;">Skróty klawiszowe AutoFill</h2>
             </div>
             <div style="padding: 20px;">
                 <div style="margin-bottom: 20px;">
@@ -1464,7 +1457,7 @@
                         <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+F</code> - Ostatnio używany profil</div>
                         <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+M</code> - Najczęściej używany profil</div>
                         <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+1/2/3</code> - Top 3 profile według popularności</div>
-                        <div style="margin-top: 8px; font-style: italic; color: #888; font-size: 12px;">Skróty ${altKey}+0-9,Q-P dostępne dla profili użytkownika</div>
+                        <div style="margin-top: 8px; font-style: italic; color: #888; font-size: 12px;">Skróty <strong>Ctrl+Alt+0-9,Q-P</strong> dostępne dla profili użytkownika</div>
                     </div>
                 </div>
                 <div style="margin-bottom: 20px;">
@@ -1477,10 +1470,11 @@
                 </div>
                 <div style="margin-bottom: 15px; padding: 10px; background: #e8f4f8; border-radius: 6px; border-left: 4px solid #2196F3;">
                     <div style="font-size: 12px; color: #1976D2;">
-                        <strong>💡 Wskazówka dla ${OS_INFO.isMac ? 'Mac' : 'Windows/Linux'}:</strong><br>
+                        <strong>💡 Uniwersalne skróty:</strong><br>
+                        Używaj <strong>Ctrl+Alt+1, Ctrl+Alt+2</strong> itd. dla profili na wszystkich platformach.<br>
                         ${OS_INFO.isMac 
-                            ? 'Używaj klawisza <strong>Option</strong> (⌥) zamiast Alt dla profili użytkownika.<br>Możesz też używać <strong>Cmd</strong> (⌘) zamiast Ctrl dla skrótów systemowych.'
-                            : 'Używaj klawisza <strong>Alt</strong> dla profili użytkownika.<br>Możesz też używać <strong>Ctrl+Alt</strong> dla lepszej kompatybilności.'
+                            ? 'Na Mac możesz też używać <strong>Cmd+Alt+1</strong> jako alternatywy.'
+                            : 'Dla kompatybilności wspieramy też <strong>Alt+1</strong> (bez Ctrl).'
                         }
                     </div>
                 </div>

@@ -393,7 +393,7 @@ class AutoFillBackground {
         }
         
         // Handle profile-specific shortcuts
-        // Support Alt+key, Option+key, Ctrl+Alt+key, Cmd+Option+key for compatibility
+        // Primary format: Ctrl+Alt+key, with Alt+key for backward compatibility
         const profile = this.profiles.find(p => {
             if (!p.shortcut) return false;
             
@@ -414,39 +414,35 @@ class AutoFillBackground {
 
     /**
      * Generate all possible shortcut variants for cross-platform compatibility
-     * @param {string} baseShortcut - Base shortcut (e.g., "Alt+1")
+     * @param {string} baseShortcut - Base shortcut (e.g., "Ctrl+Alt+1")
      * @returns {Array} - Array of possible shortcut variants
      */
     normalizeShortcutVariants(baseShortcut) {
         const variants = [baseShortcut]; // Always include original
         
-        // If shortcut starts with Alt, add Option variant for Mac
-        if (baseShortcut.startsWith('Alt+')) {
-            const key = baseShortcut.replace('Alt+', '');
-            variants.push(`Option+${key}`);
-            variants.push(`Ctrl+Alt+${key}`); // Legacy support
-            variants.push(`Cmd+Option+${key}`); // Mac legacy support
+        // If shortcut starts with Ctrl+Alt (preferred format), add backward compatibility variants
+        if (baseShortcut.startsWith('Ctrl+Alt+')) {
+            const key = baseShortcut.replace('Ctrl+Alt+', '');
+            variants.push(`Alt+${key}`); // Backward compatibility
         }
         
-        // If shortcut starts with Option, add Alt variant for Windows/Linux
+        // If shortcut starts with Alt, add Ctrl+Alt variant (convert to preferred format)
+        if (baseShortcut.startsWith('Alt+') && !baseShortcut.startsWith('Alt+Shift')) {
+            const key = baseShortcut.replace('Alt+', '');
+            variants.push(`Ctrl+Alt+${key}`); // Convert to preferred format
+        }
+        
+        // Legacy Mac support: If shortcut starts with Option, add equivalents
         if (baseShortcut.startsWith('Option+')) {
             const key = baseShortcut.replace('Option+', '');
             variants.push(`Alt+${key}`);
-            variants.push(`Ctrl+Alt+${key}`); // Legacy support
-            variants.push(`Cmd+Option+${key}`); // Mac legacy support
+            variants.push(`Ctrl+Alt+${key}`);
         }
         
-        // If shortcut starts with Ctrl+Alt, add simpler variants
-        if (baseShortcut.startsWith('Ctrl+Alt+')) {
-            const key = baseShortcut.replace('Ctrl+Alt+', '');
-            variants.push(`Alt+${key}`);
-            variants.push(`Option+${key}`);
-        }
-        
-        // If shortcut starts with Cmd+Option, add simpler variants  
+        // Legacy Mac support: If shortcut starts with Cmd+Option, add equivalents
         if (baseShortcut.startsWith('Cmd+Option+')) {
             const key = baseShortcut.replace('Cmd+Option+', '');
-            variants.push(`Option+${key}`);
+            variants.push(`Ctrl+Alt+${key}`);
             variants.push(`Alt+${key}`);
         }
         
