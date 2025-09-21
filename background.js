@@ -98,12 +98,13 @@ class AutoFillBackground {
                     break;
 
                 case 'exportProfiles':
-                    sendResponse({ success: true, data: this.profiles });
+                    const exportData = this.prepareExportData();
+                    sendResponse({ success: true, data: exportData });
                     break;
 
                 case 'importProfiles':
-                    await this.importProfiles(message.profiles);
-                    sendResponse({ success: true });
+                    const importResult = await this.importProfiles(message.profiles);
+                    sendResponse({ success: true, result: importResult });
                     break;
 
                 case 'deleteAllProfiles':
@@ -714,25 +715,78 @@ class AutoFillBackground {
         });
     }
 
-    async importProfiles(newProfiles) {
-        if (!Array.isArray(newProfiles)) {
-            throw new Error('Invalid profiles data');
+    async importProfiles(importData) {
+        // Handle both new format (with metadata) and legacy format (array of profiles)
+        let profilesToImport;
+        let importMetadata = null;
+
+        if (Array.isArray(importData)) {
+            // Legacy format: array of profiles
+            profilesToImport = importData;
+            console.log('📥 Importing legacy format (array of profiles)');
+        } else if (importData && importData.profiles && Array.isArray(importData.profiles)) {
+            // New format: object with profiles and metadata
+            profilesToImport = importData.profiles;
+            importMetadata = importData.metadata;
+            console.log('📥 Importing new format with metadata:', importMetadata);
+        } else {
+            throw new Error('Invalid profiles data format');
         }
 
-        // Validate and merge profiles
-        const validProfiles = newProfiles.filter(profile => 
+        // Validate profiles
+        const validProfiles = profilesToImport.filter(profile => 
             profile.name && profile.fields && Array.isArray(profile.fields)
         );
 
+        // Create mapping from old IDs to new IDs for preserving chains
+        const idMapping = new Map();
+        
+        // First pass: Generate new IDs and create mapping
         validProfiles.forEach(profile => {
-            profile.id = this.generateProfileId();
+            const oldId = profile.id;
+            const newId = this.generateProfileId();
+            
+            if (oldId) {
+                idMapping.set(oldId, newId);
+            }
+            
+            profile.id = newId;
             profile.importedAt = Date.now();
         });
+
+        // Second pass: Update nextProfileId references using the mapping
+        validProfiles.forEach(profile => {
+            if (profile.nextProfileId && idMapping.has(profile.nextProfileId)) {
+                profile.nextProfileId = idMapping.get(profile.nextProfileId);
+                console.log(`✅ Updated chain: ${profile.name} -> ${profile.nextProfileId}`);
+            } else if (profile.nextProfileId) {
+                // If the referenced profile is not in the import, clear the reference
+                console.warn(`⚠️ Clearing broken chain reference in ${profile.name}: ${profile.nextProfileId}`);
+                profile.nextProfileId = null;
+            }
+        });
+
+        // Log import statistics
+        const chainsFound = validProfiles.filter(p => p.nextProfileId).length;
+        const importStats = {
+            imported: validProfiles.length,
+            chains: chainsFound,
+            metadata: importMetadata
+        };
+        
+        console.log(`📊 Import completed: ${validProfiles.length} profiles, ${chainsFound} chains preserved`);
+        
+        if (importMetadata && importMetadata.chains) {
+            console.log(`📈 Original chains in export: ${importMetadata.chains.length}`);
+            importMetadata.chains.forEach(chain => {
+                console.log(`   🔗 Chain: ${chain.startProfile} (${chain.length} profiles): ${chain.profiles.join(' → ')}`);
+            });
+        }
 
         this.profiles = [...this.profiles, ...validProfiles];
         await this.saveProfiles();
         
-        return validProfiles.length;
+        return importStats;
     }
 
     async clearAllData() {
@@ -740,6 +794,65 @@ class AutoFillBackground {
         await new Promise((resolve) => {
             chrome.storage.local.clear(resolve);
         });
+    }
+
+    // Export/Import Methods
+    prepareExportData() {
+        // Prepare export data with metadata about chains
+        const exportData = {
+            profiles: [...this.profiles], // Copy profiles
+            metadata: {
+                exportDate: new Date().toISOString(),
+                version: '2.0',
+                totalProfiles: this.profiles.length,
+                profilesWithChains: this.profiles.filter(p => p.nextProfileId).length,
+                chains: this.analyzeChains()
+            }
+        };
+
+        console.log(`📤 Preparing export: ${exportData.metadata.totalProfiles} profiles, ${exportData.metadata.profilesWithChains} with chains`);
+        return exportData;
+    }
+
+    analyzeChains() {
+        const chains = [];
+        const processed = new Set();
+
+        this.profiles.forEach(profile => {
+            if (!profile.nextProfileId || processed.has(profile.id)) return;
+
+            // Trace the chain starting from this profile
+            const chain = [];
+            let current = profile;
+            const visited = new Set();
+
+            while (current && !visited.has(current.id)) {
+                visited.add(current.id);
+                processed.add(current.id);
+                
+                chain.push({
+                    id: current.id,
+                    name: current.name,
+                    nextProfileId: current.nextProfileId
+                });
+
+                if (current.nextProfileId) {
+                    current = this.profiles.find(p => p.id === current.nextProfileId);
+                } else {
+                    current = null;
+                }
+            }
+
+            if (chain.length > 1) {
+                chains.push({
+                    startProfile: chain[0].name,
+                    length: chain.length,
+                    profiles: chain.map(p => p.name)
+                });
+            }
+        });
+
+        return chains;
     }
 
     // Utility Methods

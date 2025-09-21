@@ -839,16 +839,31 @@ class AutoFillManager {
         reader.onload = (e) => {
             try {
                 const imported = JSON.parse(e.target.result);
-                if (Array.isArray(imported)) {
+                
+                // Support both legacy format (array) and new format (object with metadata)
+                const isValidData = Array.isArray(imported) || 
+                                  (imported && imported.profiles && Array.isArray(imported.profiles));
+                
+                if (isValidData) {
                     chrome.runtime.sendMessage({
                         action: 'importProfiles',
                         profiles: imported
                     }, (response) => {
                         if (response && response.success) {
                             this.loadProfiles();
-                            this.showStatus(`Zaimportowano profile`, 'success');
+                            
+                            // Show detailed import information
+                            const stats = response.result || response;
+                            if (typeof stats === 'object' && stats.imported !== undefined) {
+                                const chainsText = stats.chains > 0 ? ` (${stats.chains} łańcuchów)` : '';
+                                this.showStatus(`✅ Zaimportowano ${stats.imported} profili${chainsText}`, 'success');
+                            } else {
+                                // Fallback for legacy response format
+                                const count = typeof stats === 'number' ? stats : 'profile';
+                                this.showStatus(`✅ Zaimportowano ${count} profili`, 'success');
+                            }
                         } else {
-                            this.showStatus('Ошибка при импорте', 'error');
+                            this.showStatus('❌ Ошибка при импорте', 'error');
                         }
                     });
                 } else {
