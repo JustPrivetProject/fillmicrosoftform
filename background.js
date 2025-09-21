@@ -361,33 +361,96 @@ class AutoFillBackground {
     }
 
     async handleCustomShortcut(shortcut, tabId) {
-        // Handle reserved shortcuts for special functions (Ctrl+Shift+...)
-        switch (shortcut) {
-            case 'Ctrl+Shift+F':
-                await this.fillWithLastUsedProfile(tabId);
-                return;
-            case 'Ctrl+Shift+M':
-                await this.fillWithMostUsedProfile(tabId);
-                return;
-            case 'Ctrl+Shift+1':
-                await this.fillWithQuickProfile(0, tabId);
-                return;
-            case 'Ctrl+Shift+2':
-                await this.fillWithQuickProfile(1, tabId);
-                return;
-            case 'Ctrl+Shift+3':
-                await this.fillWithQuickProfile(2, tabId);
-                return;
+        // Handle reserved shortcuts for special functions 
+        // Support both Ctrl+Shift (Windows/Linux) and Cmd+Shift (Mac)
+        const systemShortcuts = [
+            'Ctrl+Shift+F', 'Cmd+Shift+F',
+            'Ctrl+Shift+M', 'Cmd+Shift+M', 
+            'Ctrl+Shift+1', 'Cmd+Shift+1',
+            'Ctrl+Shift+2', 'Cmd+Shift+2',
+            'Ctrl+Shift+3', 'Cmd+Shift+3'
+        ];
+        
+        if (shortcut.endsWith('+F')) {
+            await this.fillWithLastUsedProfile(tabId);
+            return;
+        }
+        if (shortcut.endsWith('+M')) {
+            await this.fillWithMostUsedProfile(tabId);
+            return;
+        }
+        if (shortcut.endsWith('+1')) {
+            await this.fillWithQuickProfile(0, tabId);
+            return;
+        }
+        if (shortcut.endsWith('+2')) {
+            await this.fillWithQuickProfile(1, tabId);
+            return;
+        }
+        if (shortcut.endsWith('+3')) {
+            await this.fillWithQuickProfile(2, tabId);
+            return;
         }
         
-        // Handle profile-specific shortcuts (Alt+..., Ctrl+Alt+... for compatibility)
-        const profile = this.profiles.find(p => p.shortcut === shortcut);
+        // Handle profile-specific shortcuts
+        // Support Alt+key, Option+key, Ctrl+Alt+key, Cmd+Option+key for compatibility
+        const profile = this.profiles.find(p => {
+            if (!p.shortcut) return false;
+            
+            // Normalize shortcuts for comparison
+            const profileShortcut = p.shortcut;
+            const normalizedShortcuts = this.normalizeShortcutVariants(profileShortcut);
+            
+            return normalizedShortcuts.includes(shortcut);
+        });
+        
         if (profile) {
             console.log(`Found profile for shortcut ${shortcut}:`, profile.name);
             await this.fillFormWithProfile(profile.id, tabId);
         } else {
             console.log(`No profile found for shortcut: ${shortcut}`);
         }
+    }
+
+    /**
+     * Generate all possible shortcut variants for cross-platform compatibility
+     * @param {string} baseShortcut - Base shortcut (e.g., "Alt+1")
+     * @returns {Array} - Array of possible shortcut variants
+     */
+    normalizeShortcutVariants(baseShortcut) {
+        const variants = [baseShortcut]; // Always include original
+        
+        // If shortcut starts with Alt, add Option variant for Mac
+        if (baseShortcut.startsWith('Alt+')) {
+            const key = baseShortcut.replace('Alt+', '');
+            variants.push(`Option+${key}`);
+            variants.push(`Ctrl+Alt+${key}`); // Legacy support
+            variants.push(`Cmd+Option+${key}`); // Mac legacy support
+        }
+        
+        // If shortcut starts with Option, add Alt variant for Windows/Linux
+        if (baseShortcut.startsWith('Option+')) {
+            const key = baseShortcut.replace('Option+', '');
+            variants.push(`Alt+${key}`);
+            variants.push(`Ctrl+Alt+${key}`); // Legacy support
+            variants.push(`Cmd+Option+${key}`); // Mac legacy support
+        }
+        
+        // If shortcut starts with Ctrl+Alt, add simpler variants
+        if (baseShortcut.startsWith('Ctrl+Alt+')) {
+            const key = baseShortcut.replace('Ctrl+Alt+', '');
+            variants.push(`Alt+${key}`);
+            variants.push(`Option+${key}`);
+        }
+        
+        // If shortcut starts with Cmd+Option, add simpler variants  
+        if (baseShortcut.startsWith('Cmd+Option+')) {
+            const key = baseShortcut.replace('Cmd+Option+', '');
+            variants.push(`Option+${key}`);
+            variants.push(`Alt+${key}`);
+        }
+        
+        return [...new Set(variants)]; // Remove duplicates
     }
 
     async fillWithLastUsedProfile(tabId) {

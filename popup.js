@@ -25,14 +25,119 @@ class AutoFillManager {
         this.currentProfile = null;
         this.currentField = null;
         this.editingFieldIndex = -1;
+        this.osInfo = this.detectOperatingSystem();
         
         this.init();
+    }
+
+    /**
+     * Detect the operating system
+     * @returns {Object} - Object with OS information
+     */
+    detectOperatingSystem() {
+        const userAgent = navigator.userAgent;
+        const platform = navigator.platform;
+        
+        let os = 'unknown';
+        let isMac = false;
+        let isWindows = false;
+        let isLinux = false;
+        let modifierKey = 'Ctrl'; // Default modifier
+        let altKey = 'Alt';       // Default alt key
+
+        // Detect Mac
+        if (/Mac|iPhone|iPad|iPod/.test(platform) || /Mac OS X/.test(userAgent)) {
+            os = 'mac';
+            isMac = true;
+            modifierKey = 'Cmd';
+            altKey = 'Option';
+        }
+        // Detect Windows
+        else if (/Win/.test(platform) || /Windows/.test(userAgent)) {
+            os = 'windows';
+            isWindows = true;
+            modifierKey = 'Ctrl';
+            altKey = 'Alt';
+        }
+        // Detect Linux
+        else if (/Linux/.test(platform) || /X11/.test(platform)) {
+            os = 'linux';
+            isLinux = true;
+            modifierKey = 'Ctrl';
+            altKey = 'Alt';
+        }
+
+        console.log('Detected OS in popup:', { os, isMac, isWindows, isLinux, modifierKey, altKey });
+
+        return {
+            os,
+            isMac,
+            isWindows,
+            isLinux,
+            modifierKey,
+            altKey,
+            platform
+        };
     }
     
     async init() {
         this.bindEvents();
+        this.updateKeyboardShortcutOptions();
         await this.loadProfiles();
         this.showMainView();
+        
+        // Show OS-specific welcome message on first load
+        setTimeout(() => {
+            this.showOSWelcomeMessage();
+        }, 500);
+    }
+
+    /**
+     * Update keyboard shortcut options based on OS
+     */
+    updateKeyboardShortcutOptions() {
+        const shortcutSelect = document.getElementById('keyboardShortcut');
+        const altKey = this.osInfo.altKey;
+        
+        // Clear existing options
+        shortcutSelect.innerHTML = '';
+        
+        // Add "no shortcut" option
+        const noShortcutOption = document.createElement('option');
+        noShortcutOption.value = '';
+        noShortcutOption.textContent = 'Bez skrótu klawiszowego';
+        shortcutSelect.appendChild(noShortcutOption);
+        
+        // Add number shortcuts (0-9)
+        for (let i = 1; i <= 9; i++) {
+            const option = document.createElement('option');
+            option.value = `${altKey}+${i}`;
+            option.textContent = `${altKey}+${i}`;
+            shortcutSelect.appendChild(option);
+        }
+        
+        // Add 0
+        const zeroOption = document.createElement('option');
+        zeroOption.value = `${altKey}+0`;
+        zeroOption.textContent = `${altKey}+0`;
+        shortcutSelect.appendChild(zeroOption);
+        
+        // Add letter shortcuts (Q-P)
+        const letters = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'];
+        letters.forEach(letter => {
+            const option = document.createElement('option');
+            option.value = `${altKey}+${letter}`;
+            option.textContent = `${altKey}+${letter}`;
+            shortcutSelect.appendChild(option);
+        });
+        
+        // Update the label to show the correct key
+        const label = document.querySelector('label[for="keyboardShortcut"]');
+        if (label) {
+            label.textContent = `Skrót klawiszowy (${altKey}+):`;
+        }
+        
+        console.log(`Updated keyboard shortcuts for ${this.osInfo.os} using ${altKey} key`);
     }
     
     bindEvents() {
@@ -819,6 +924,7 @@ class AutoFillManager {
         const statusEl = document.getElementById('statusMessage');
         statusEl.textContent = message;
         statusEl.className = `status-message ${type}`;
+        statusEl.style.display = 'block';
         
         // For successful form fills, add close button
         if (type === 'success' && message.includes('Заполнено')) {
@@ -838,6 +944,17 @@ class AutoFillManager {
             setTimeout(() => {
                 statusEl.style.display = 'none';
             }, 3000);
+        }
+    }
+
+    /**
+     * Show OS-specific welcome message
+     */
+    showOSWelcomeMessage() {
+        if (this.osInfo.isMac) {
+            this.showStatus(`🍎 AutoFill dostosowany dla Mac! Używaj ${this.osInfo.altKey} zamiast Alt dla profili.`, 'info');
+        } else {
+            this.showStatus(`💻 AutoFill działa na ${this.osInfo.os.toUpperCase()}! Skróty ${this.osInfo.altKey}+ są dostępne.`, 'info');
         }
     }
     

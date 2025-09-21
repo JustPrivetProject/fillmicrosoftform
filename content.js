@@ -6,6 +6,59 @@
 
     console.log('Google Forms AutoFill Content Script v2.0 loaded');
 
+    /**
+     * Detect the operating system
+     * @returns {Object} - Object with OS information
+     */
+    function detectOperatingSystem() {
+        const userAgent = navigator.userAgent;
+        const platform = navigator.platform;
+        
+        let os = 'unknown';
+        let isMac = false;
+        let isWindows = false;
+        let isLinux = false;
+        let modifierKey = 'Ctrl'; // Default modifier
+        let altKey = 'Alt';       // Default alt key
+
+        // Detect Mac
+        if (/Mac|iPhone|iPad|iPod/.test(platform) || /Mac OS X/.test(userAgent)) {
+            os = 'mac';
+            isMac = true;
+            modifierKey = 'Cmd';
+            altKey = 'Option';
+        }
+        // Detect Windows
+        else if (/Win/.test(platform) || /Windows/.test(userAgent)) {
+            os = 'windows';
+            isWindows = true;
+            modifierKey = 'Ctrl';
+            altKey = 'Alt';
+        }
+        // Detect Linux
+        else if (/Linux/.test(platform) || /X11/.test(platform)) {
+            os = 'linux';
+            isLinux = true;
+            modifierKey = 'Ctrl';
+            altKey = 'Alt';
+        }
+
+        return {
+            os,
+            isMac,
+            isWindows,
+            isLinux,
+            modifierKey,
+            altKey,
+            platform,
+            userAgent: userAgent.substring(0, 50) + '...' // Truncated for logging
+        };
+    }
+
+    // Detect operating system
+    const OS_INFO = detectOperatingSystem();
+    console.log('Detected OS:', OS_INFO);
+
     // Field type mapping for different input types
     const FIELD_TYPES = {
         text: 'input',
@@ -1317,23 +1370,39 @@
         overlay._cleanup = cleanupOverlay;
     }
 
-    // Enhanced keyboard shortcuts support
+    // Enhanced keyboard shortcuts support with OS detection
     document.addEventListener('keydown', function(e) {
         let shortcut = null;
         
-        // Handle Ctrl+Shift+... for system shortcuts (F, M, 1, 2, 3, D, A, H)
-        if (e.ctrlKey && e.shiftKey && e.key.length === 1) {
-            shortcut = `Ctrl+Shift+${e.key.toUpperCase()}`;
+        // Get the appropriate modifier keys for the current OS
+        const isModifierPressed = OS_INFO.isMac ? e.metaKey : e.ctrlKey;
+        const isAltPressed = e.altKey;
+        
+        // Handle system shortcuts (F, M, 1, 2, 3, D, A, H)
+        if (isModifierPressed && e.shiftKey && e.key.length === 1) {
+            const modifier = OS_INFO.isMac ? 'Cmd' : 'Ctrl';
+            shortcut = `${modifier}+Shift+${e.key.toUpperCase()}`;
         }
         
-        // Handle Alt+... for user profile shortcuts (new simple format)
-        if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.length === 1) {
-            shortcut = `Alt+${e.key.toUpperCase()}`;
-        }
-        
-        // Handle legacy Ctrl+Alt+... for backward compatibility  
-        if (e.ctrlKey && e.altKey && e.key.length === 1) {
-            shortcut = `Ctrl+Alt+${e.key.toUpperCase()}`;
+        // Handle user profile shortcuts - different approach for Mac vs Windows/Linux
+        if (OS_INFO.isMac) {
+            // On Mac: Use Option+key (metaKey is for Cmd)
+            if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.key.length === 1) {
+                shortcut = `Option+${e.key.toUpperCase()}`;
+            }
+            // Also support Cmd+Option+key for backward compatibility 
+            if (e.metaKey && e.altKey && e.key.length === 1) {
+                shortcut = `Cmd+Option+${e.key.toUpperCase()}`;
+            }
+        } else {
+            // On Windows/Linux: Use Alt+key 
+            if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.length === 1) {
+                shortcut = `Alt+${e.key.toUpperCase()}`;
+            }
+            // Handle legacy Ctrl+Alt+... for backward compatibility  
+            if (e.ctrlKey && e.altKey && e.key.length === 1) {
+                shortcut = `Ctrl+Alt+${e.key.toUpperCase()}`;
+            }
         }
         
         if (shortcut) {
@@ -1380,26 +1449,39 @@
             animation: modalSlideIn 0.3s ease-out;
         `;
 
+        // Generate OS-specific shortcut text
+        const modifier = OS_INFO.modifierKey;
+        const altKey = OS_INFO.altKey;
+        
         overlay.innerHTML = `
             <div style="background: #667eea; color: white; padding: 20px; border-radius: 10px 10px 0 0; text-align: center;">
-                <h2 style="margin: 0; font-size: 18px;">Skróty klawiszowe AutoFill</h2>
+                <h2 style="margin: 0; font-size: 18px;">Skróty klawiszowe AutoFill (${OS_INFO.os.toUpperCase()})</h2>
             </div>
             <div style="padding: 20px;">
                 <div style="margin-bottom: 20px;">
                     <h3 style="color: #333; margin-bottom: 10px; font-size: 14px;">🚀 Szybkie wypełnianie:</h3>
                     <div style="color: #666; line-height: 1.6; font-size: 13px;">
-                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">Ctrl+Shift+F</code> - Ostatnio używany profil</div>
-                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">Ctrl+Shift+M</code> - Najczęściej używany profil</div>
-                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">Ctrl+Shift+1/2/3</code> - Top 3 profile według popularności</div>
-                        <div style="margin-top: 8px; font-style: italic; color: #888; font-size: 12px;">Skróty Alt+0-9,Q-P dostępne dla profili użytkownika</div>
+                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+F</code> - Ostatnio używany profil</div>
+                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+M</code> - Najczęściej używany profil</div>
+                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+1/2/3</code> - Top 3 profile według popularności</div>
+                        <div style="margin-top: 8px; font-style: italic; color: #888; font-size: 12px;">Skróty ${altKey}+0-9,Q-P dostępne dla profili użytkownika</div>
                     </div>
                 </div>
                 <div style="margin-bottom: 20px;">
                     <h3 style="color: #333; margin-bottom: 10px; font-size: 14px;">🔧 Narzędzia:</h3>
                     <div style="color: #666; line-height: 1.6; font-size: 13px;">
-                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">Ctrl+Shift+A</code> - Otwórz AutoFill</div>
-                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">Ctrl+Shift+D</code> - Найти поля формы</div>
-                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">Ctrl+Shift+H</code> - Pokaż/ukryj pomoc</div>
+                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+A</code> - Otwórz AutoFill</div>
+                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+D</code> - Найти поля формы</div>
+                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+H</code> - Pokaż/ukryj pomoc</div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 15px; padding: 10px; background: #e8f4f8; border-radius: 6px; border-left: 4px solid #2196F3;">
+                    <div style="font-size: 12px; color: #1976D2;">
+                        <strong>💡 Wskazówka dla ${OS_INFO.isMac ? 'Mac' : 'Windows/Linux'}:</strong><br>
+                        ${OS_INFO.isMac 
+                            ? 'Używaj klawisza <strong>Option</strong> (⌥) zamiast Alt dla profili użytkownika.<br>Możesz też używać <strong>Cmd</strong> (⌘) zamiast Ctrl dla skrótów systemowych.'
+                            : 'Używaj klawisza <strong>Alt</strong> dla profili użytkownika.<br>Możesz też używać <strong>Ctrl+Alt</strong> dla lepszej kompatybilności.'
+                        }
                     </div>
                 </div>
                 <div style="text-align: center; margin-top: 20px;">
