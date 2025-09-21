@@ -1454,9 +1454,7 @@
                 <div style="margin-bottom: 20px;">
                     <h3 style="color: #333; margin-bottom: 10px; font-size: 14px;">🚀 Szybkie wypełnianie:</h3>
                     <div style="color: #666; line-height: 1.6; font-size: 13px;">
-                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+F</code> - Ostatnio używany profil</div>
-                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+M</code> - Najczęściej używany profil</div>
-                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+1/2/3</code> - Top 3 profile według popularności</div>
+                        <div><code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${modifier}+Shift+1/2/3</code> - Profile 1, 2, 3 według kolejności</div>
                         <div style="margin-top: 8px; font-style: italic; color: #888; font-size: 12px;">Skróty <strong>Ctrl+Alt+0-9,Q-P</strong> dostępne dla profili użytkownika</div>
                     </div>
                 </div>

@@ -146,7 +146,6 @@ class AutoFillBackground {
                 } else {
                     console.log('Profiles saved to storage');
                 }
-                this.broadcastProfilesUpdate();
                 resolve();
             });
         });
@@ -275,10 +274,8 @@ class AutoFillBackground {
                 });
             });
 
-            // Log usage statistics only on success
+            // Check if chain should continue only on success
             if (response.success) {
-                await this.logProfileUsage(profileId);
-                
                 // If this profile has a next profile and current filling was successful, execute the chain
                 if (profile.nextProfileId) {
                     console.log(`🔗 Profile ${profile.name} completed, continuing chain to next profile`);
@@ -324,14 +321,6 @@ class AutoFillBackground {
         }
     }
 
-    async logProfileUsage(profileId) {
-        const profile = this.profiles.find(p => p.id === profileId);
-        if (profile) {
-            profile.lastUsed = Date.now();
-            profile.usageCount = (profile.usageCount || 0) + 1;
-            await this.saveProfiles();
-        }
-    }
 
     // Keyboard Shortcuts
     setupKeyboardShortcuts() {
@@ -373,24 +362,8 @@ class AutoFillBackground {
     }
 
     async handleCustomShortcut(shortcut, tabId) {
-        // Handle reserved shortcuts for special functions 
-        // Support both Ctrl+Shift (Windows/Linux) and Cmd+Shift (Mac)
-        const systemShortcuts = [
-            'Ctrl+Shift+F', 'Cmd+Shift+F',
-            'Ctrl+Shift+M', 'Cmd+Shift+M', 
-            'Ctrl+Shift+1', 'Cmd+Shift+1',
-            'Ctrl+Shift+2', 'Cmd+Shift+2',
-            'Ctrl+Shift+3', 'Cmd+Shift+3'
-        ];
+        // Handle reserved shortcuts for quick profile access
         
-        if (shortcut.endsWith('+F')) {
-            await this.fillWithLastUsedProfile(tabId);
-            return;
-        }
-        if (shortcut.endsWith('+M')) {
-            await this.fillWithMostUsedProfile(tabId);
-            return;
-        }
         if (shortcut.endsWith('+1')) {
             await this.fillWithQuickProfile(0, tabId);
             return;
@@ -461,42 +434,20 @@ class AutoFillBackground {
         return [...new Set(variants)]; // Remove duplicates
     }
 
-    async fillWithLastUsedProfile(tabId) {
-        const lastUsedProfile = this.profiles
-            .filter(p => p.lastUsed)
-            .sort((a, b) => b.lastUsed - a.lastUsed)[0];
-
-        if (lastUsedProfile) {
-            console.log(`Filling with last used profile: ${lastUsedProfile.name}`);
-            await this.fillFormWithProfile(lastUsedProfile.id, tabId);
-            this.showNotification(`Wypełniono ostatnio używanym profilem: ${lastUsedProfile.name}`);
-        } else {
-            this.showNotification('Brak ostatnio używanego profilu', 'warning');
-        }
-    }
-
-    async fillWithMostUsedProfile(tabId) {
-        const mostUsedProfile = this.profiles
-            .filter(p => p.usageCount)
-            .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))[0];
-
-        if (mostUsedProfile) {
-            console.log(`Filling with most used profile: ${mostUsedProfile.name}`);
-            await this.fillFormWithProfile(mostUsedProfile.id, tabId);
-            this.showNotification(`Wypełniono najczęściej używanym profilem: ${mostUsedProfile.name}`);
-        } else {
-            this.showNotification('Brak najczęściej używanego profilu', 'warning');
-        }
-    }
-
     async fillWithQuickProfile(index, tabId) {
-        // Get profiles sorted by usage or creation date
-        const sortedProfiles = this.profiles
-            .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0) || b.createdAt - a.createdAt);
+        // Get profiles in display order
+        const sortedProfiles = [...this.profiles].sort((a, b) => {
+            const orderA = a.displayOrder || 0;
+            const orderB = b.displayOrder || 0;
+            if (orderA === orderB) {
+                return (a.createdAt || 0) - (b.createdAt || 0);
+            }
+            return orderA - orderB;
+        });
 
         if (sortedProfiles[index]) {
             const profile = sortedProfiles[index];
-            console.log(`Filling with quick profile ${index + 1}: ${profile.name}`);
+            console.log(`Filling with profile ${index + 1}: ${profile.name}`);
             await this.fillFormWithProfile(profile.id, tabId);
             this.showNotification(`Wypełniono profilem ${index + 1}: ${profile.name}`);
         } else {
@@ -715,15 +666,8 @@ class AutoFillBackground {
 
     // Storage Management
     setupStorageListeners() {
-        chrome.storage.onChanged.addListener((changes, namespace) => {
-            if (namespace === 'local' && changes.autofillProfiles) {
-                this.profiles = changes.autofillProfiles.newValue || [];
-                // Only update context menus if they were successfully set up
-                if (this.contextMenusCreated) {
-                    this.updateContextMenuProfiles();
-                }
-            }
-        });
+        // Removed automatic profile updates to prevent order changes
+        console.log('Storage listeners disabled - profiles only update on popup open');
     }
 
     async importProfiles(importData) {
@@ -877,23 +821,12 @@ class AutoFillBackground {
         return tabs[0];
     }
 
-    broadcastProfilesUpdate() {
-        // Notify all popups about profile changes
-        chrome.runtime.sendMessage({
-            action: 'profilesUpdated',
-            profiles: this.profiles
-        }).catch(() => {
-            // Ignore errors if no popup is open
-        });
-    }
 
     // Statistics and Analytics
     getProfileStats() {
         return {
             totalProfiles: this.profiles.length,
             totalFields: this.profiles.reduce((sum, p) => sum + p.fields.length, 0),
-            mostUsedProfile: this.profiles
-                .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))[0],
             profilesWithShortcuts: this.profiles.filter(p => p.shortcut).length
         };
     }

@@ -228,15 +228,9 @@ class AutoFillManager {
         // Ensure all profiles have displayOrder
         this.ensureDisplayOrder();
         
-        // Sort profiles by displayOrder to maintain consistent order
+        // Simple stable sort by displayOrder
         const sortedProfiles = [...this.profiles].sort((a, b) => {
-            const orderA = a.displayOrder || 0;
-            const orderB = b.displayOrder || 0;
-            // If displayOrder is the same, sort by creation date as fallback
-            if (orderA === orderB) {
-                return (a.createdAt || 0) - (b.createdAt || 0);
-            }
-            return orderA - orderB;
+            return (a.displayOrder || 0) - (b.displayOrder || 0);
         });
         
         if (sortedProfiles.length === 0) {
@@ -295,12 +289,7 @@ class AutoFillManager {
         // Get sorted profiles for correct indexing
         this.ensureDisplayOrder();
         const sortedProfiles = [...this.profiles].sort((a, b) => {
-            const orderA = a.displayOrder || 0;
-            const orderB = b.displayOrder || 0;
-            if (orderA === orderB) {
-                return (a.createdAt || 0) - (b.createdAt || 0);
-            }
-            return orderA - orderB;
+            return (a.displayOrder || 0) - (b.displayOrder || 0);
         });
         
         // Profile item click (edit)
@@ -369,21 +358,11 @@ class AutoFillManager {
      * Ensure all profiles have displayOrder field
      */
     ensureDisplayOrder() {
-        let needsUpdate = false;
-        
         this.profiles.forEach((profile, index) => {
             if (typeof profile.displayOrder !== 'number') {
                 profile.displayOrder = index + 1;
-                needsUpdate = true;
             }
         });
-        
-        // If we added displayOrder to any profiles, save them
-        if (needsUpdate) {
-            console.log('✅ Added displayOrder to profiles for stable sorting');
-            // Don't call saveProfiles here to avoid infinite loop
-            // The displayOrder will be saved when profile is next modified
-        }
     }
     
     editProfile(index) {
