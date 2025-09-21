@@ -225,7 +225,21 @@ class AutoFillManager {
         const container = document.getElementById('profilesList');
         const deleteAllBtn = document.getElementById('deleteAllBtn');
         
-        if (this.profiles.length === 0) {
+        // Ensure all profiles have displayOrder
+        this.ensureDisplayOrder();
+        
+        // Sort profiles by displayOrder to maintain consistent order
+        const sortedProfiles = [...this.profiles].sort((a, b) => {
+            const orderA = a.displayOrder || 0;
+            const orderB = b.displayOrder || 0;
+            // If displayOrder is the same, sort by creation date as fallback
+            if (orderA === orderB) {
+                return (a.createdAt || 0) - (b.createdAt || 0);
+            }
+            return orderA - orderB;
+        });
+        
+        if (sortedProfiles.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
                     <h3>Нет профилей</h3>
@@ -251,8 +265,8 @@ class AutoFillManager {
             deleteAllBtn.style.display = 'inline-flex';
         }
         
-        container.innerHTML = this.profiles.map((profile, index) => {
-            const nextProfile = profile.nextProfileId ? this.profiles.find(p => p.id === profile.nextProfileId) : null;
+        container.innerHTML = sortedProfiles.map((profile, index) => {
+            const nextProfile = profile.nextProfileId ? sortedProfiles.find(p => p.id === profile.nextProfileId) : null;
             
             return `
             <div class="profile-item ${profile.nextProfileId ? 'has-chain' : ''}" data-profile-index="${index}">
@@ -278,13 +292,26 @@ class AutoFillManager {
     }
     
     attachProfilesEventListeners() {
+        // Get sorted profiles for correct indexing
+        this.ensureDisplayOrder();
+        const sortedProfiles = [...this.profiles].sort((a, b) => {
+            const orderA = a.displayOrder || 0;
+            const orderB = b.displayOrder || 0;
+            if (orderA === orderB) {
+                return (a.createdAt || 0) - (b.createdAt || 0);
+            }
+            return orderA - orderB;
+        });
+        
         // Profile item click (edit)
         document.querySelectorAll('.profile-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 // Don't trigger if clicking on actions
                 if (e.target.closest('.profile-actions')) return;
-                const index = parseInt(item.dataset.profileIndex);
-                this.editProfile(index);
+                const sortedIndex = parseInt(item.dataset.profileIndex);
+                const profile = sortedProfiles[sortedIndex];
+                const originalIndex = this.profiles.findIndex(p => p.id === profile.id);
+                this.editProfile(originalIndex);
             });
         });
         
@@ -294,8 +321,10 @@ class AutoFillManager {
         document.querySelectorAll('.profile-duplicate-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const index = parseInt(btn.dataset.profileIndex);
-                this.duplicateProfile(index);
+                const sortedIndex = parseInt(btn.dataset.profileIndex);
+                const profile = sortedProfiles[sortedIndex];
+                const originalIndex = this.profiles.findIndex(p => p.id === profile.id);
+                this.duplicateProfile(originalIndex);
             });
         });
         
@@ -303,8 +332,10 @@ class AutoFillManager {
         document.querySelectorAll('.profile-delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const index = parseInt(btn.dataset.profileIndex);
-                this.deleteProfileFromList(index);
+                const sortedIndex = parseInt(btn.dataset.profileIndex);
+                const profile = sortedProfiles[sortedIndex];
+                const originalIndex = this.profiles.findIndex(p => p.id === profile.id);
+                this.deleteProfileFromList(originalIndex);
             });
         });
     }
@@ -316,12 +347,43 @@ class AutoFillManager {
             description: '',
             shortcut: '',
             nextProfileId: null,
-            fields: []
+            fields: [],
+            displayOrder: this.getNextDisplayOrder()
         };
         this.showEditorView();
         this.renderProfileEditor();
         document.getElementById('deleteProfile').style.display = 'none';
         document.getElementById('editorTitle').textContent = 'Nowy profil';
+    }
+
+    /**
+     * Get next display order number for new profiles
+     */
+    getNextDisplayOrder() {
+        if (this.profiles.length === 0) return 1;
+        const maxOrder = Math.max(...this.profiles.map(p => p.displayOrder || 0));
+        return maxOrder + 1;
+    }
+
+    /**
+     * Ensure all profiles have displayOrder field
+     */
+    ensureDisplayOrder() {
+        let needsUpdate = false;
+        
+        this.profiles.forEach((profile, index) => {
+            if (typeof profile.displayOrder !== 'number') {
+                profile.displayOrder = index + 1;
+                needsUpdate = true;
+            }
+        });
+        
+        // If we added displayOrder to any profiles, save them
+        if (needsUpdate) {
+            console.log('✅ Added displayOrder to profiles for stable sorting');
+            // Don't call saveProfiles here to avoid infinite loop
+            // The displayOrder will be saved when profile is next modified
+        }
     }
     
     editProfile(index) {

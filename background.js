@@ -156,13 +156,17 @@ class AutoFillBackground {
         const existingIndex = this.profiles.findIndex(p => p.id === profile.id);
         
         if (existingIndex >= 0) {
-            // Update existing profile
+            // Update existing profile - preserve displayOrder
             this.profiles[existingIndex] = { ...profile, updatedAt: Date.now() };
         } else {
             // Add new profile
             profile.id = profile.id || this.generateProfileId();
             profile.createdAt = Date.now();
             profile.updatedAt = Date.now();
+            // Add displayOrder if not present
+            if (typeof profile.displayOrder !== 'number') {
+                profile.displayOrder = this.getNextDisplayOrder();
+            }
             this.profiles.push(profile);
         }
         
@@ -189,6 +193,7 @@ class AutoFillBackground {
             id: this.generateProfileId(),
             name: original.name + ' (копия)',
             shortcut: '', // Remove shortcut from duplicate
+            displayOrder: this.getNextDisplayOrder(), // Add to end of list
             createdAt: Date.now(),
             updatedAt: Date.now()
         };
@@ -221,6 +226,12 @@ class AutoFillBackground {
 
     generateProfileId() {
         return 'profile_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    getNextDisplayOrder() {
+        if (this.profiles.length === 0) return 1;
+        const maxOrder = Math.max(...this.profiles.map(p => p.displayOrder || 0));
+        return maxOrder + 1;
     }
 
     // Form Filling Methods
@@ -752,6 +763,11 @@ class AutoFillBackground {
             
             profile.id = newId;
             profile.importedAt = Date.now();
+            
+            // Add displayOrder if not present
+            if (typeof profile.displayOrder !== 'number') {
+                profile.displayOrder = this.getNextDisplayOrder();
+            }
         });
 
         // Second pass: Update nextProfileId references using the mapping
