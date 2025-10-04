@@ -166,9 +166,6 @@ class AutoFillManager {
         document.getElementById('fieldType').addEventListener('change', (e) => this.handleFieldTypeChange(e));
         
         
-        // Action button handlers
-        document.getElementById('nextButton').addEventListener('click', () => this.selectActionButton('next'));
-        document.getElementById('submitButton').addEventListener('click', () => this.selectActionButton('submit'));
         
         // Global keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboardShortcut(e));
@@ -273,7 +270,6 @@ class AutoFillManager {
                 <div class="profile-info">
                     <span class="profile-fields">${profile.fields.length} полей</span>
                     ${profile.autoFillOfficeForms ? `<span class="profile-auto">⚡ Автозаполнение на Microsoft Forms</span>` : ''}
-                    ${profile.buttonAction && profile.buttonAction !== 'auto' ? `<span class="profile-action">🎯 ${this.getButtonActionText(profile.buttonAction)}</span>` : ''}
                     ${nextProfile ? `<span class="profile-chain">→ ${this.escapeHtml(nextProfile.name)}</span>` : ''}
                 </div>
                 <div class="profile-actions">
@@ -339,12 +335,10 @@ class AutoFillManager {
             description: '',
             shortcut: '',
             autoFillOfficeForms: false,
-            buttonAction: 'next',
             nextProfileId: null,
             fields: [],
             displayOrder: this.getNextDisplayOrder()
         };
-        this.selectedButtonAction = 'next';
         this.showEditorView();
         this.renderProfileEditor();
         document.getElementById('deleteProfile').style.display = 'none';
@@ -387,21 +381,6 @@ class AutoFillManager {
         document.getElementById('profileDescription').value = this.currentProfile.description;
         document.getElementById('keyboardShortcut').value = this.currentProfile.shortcut || '';
         document.getElementById('autoFillOfficeForms').checked = this.currentProfile.autoFillOfficeForms || false;
-        
-        // Set button action based on profile's buttonAction
-        const buttonAction = this.currentProfile.buttonAction || 'next';
-        this.selectedButtonAction = buttonAction;
-        
-        // Update button states
-        document.querySelectorAll('.action-button').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
-        if (buttonAction === 'next') {
-            document.getElementById('nextButton').classList.add('active');
-        } else if (buttonAction === 'submit') {
-            document.getElementById('submitButton').classList.add('active');
-        }
         
         // Populate next profile dropdown
         this.populateNextProfileDropdown();
@@ -564,21 +543,6 @@ class AutoFillManager {
     }
     
     
-    selectActionButton(action) {
-        // Remove active class from all action buttons
-        document.querySelectorAll('.action-button').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
-        // Add active class to selected button
-        if (action === 'next') {
-            document.getElementById('nextButton').classList.add('active');
-            this.selectedButtonAction = 'next';
-        } else if (action === 'submit') {
-            document.getElementById('submitButton').classList.add('active');
-            this.selectedButtonAction = 'submit';
-        }
-    }
     
     saveField() {
         const fieldType = document.getElementById('fieldType').value;
@@ -647,7 +611,6 @@ class AutoFillManager {
         this.currentProfile.name = name;
         this.currentProfile.description = document.getElementById('profileDescription').value.trim();
         this.currentProfile.autoFillOfficeForms = document.getElementById('autoFillOfficeForms').checked;
-        this.currentProfile.buttonAction = this.selectedButtonAction || 'next';
         const selectedShortcut = document.getElementById('keyboardShortcut').value;
         
         // Check if shortcut is already used by another profile
@@ -898,7 +861,8 @@ class AutoFillManager {
                             const stats = response.result || response;
                             if (typeof stats === 'object' && stats.imported !== undefined) {
                                 const chainsText = stats.chains > 0 ? ` (${stats.chains} łańcuchów)` : '';
-                                this.showStatus(`✅ Zaimportowano ${stats.imported} profili${chainsText}`, 'success');
+                                const cleanedText = stats.cleaned ? ' - поля очищены' : '';
+                                this.showStatus(`✅ Zaimportowano ${stats.imported} profili${chainsText}${cleanedText}`, 'success');
                             } else {
                                 // Fallback for legacy response format
                                 const count = typeof stats === 'number' ? stats : 'profile';
@@ -990,14 +954,6 @@ class AutoFillManager {
         this.showStatus(`Ошибка загрузки профилей: ${error || 'Неизвестная ошибка'}`, 'error');
     }
     
-    getButtonActionText(action) {
-        switch(action) {
-            case 'next': return 'Следующий';
-            case 'submit': return 'Отправить';
-            case 'auto': return 'Auto';
-            default: return action;
-        }
-    }
     
     escapeHtml(text) {
         const div = document.createElement('div');

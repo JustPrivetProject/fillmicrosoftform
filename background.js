@@ -263,7 +263,7 @@ class AutoFillBackground {
             // Send profile to content script for filling
             const response = await new Promise((resolve, reject) => {
                 chrome.tabs.sendMessage(tabId, {
-                    action: 'fillFormAdvanced',
+                    action: 'fillForm',
                     profile: profile
                 }, (response) => {
                     if (chrome.runtime.lastError) {
@@ -671,7 +671,7 @@ class AutoFillBackground {
     }
 
     async importProfiles(importData) {
-        // Handle both new format (with metadata) and legacy format (array of profiles)
+        // Handle multiple formats: legacy array, v2.0 format, and v2.1+ format
         let profilesToImport;
         let importMetadata = null;
 
@@ -683,12 +683,21 @@ class AutoFillBackground {
             // New format: object with profiles and metadata
             profilesToImport = importData.profiles;
             importMetadata = importData.metadata;
-            console.log('📥 Importing new format with metadata:', importMetadata);
+            
+            const version = importMetadata?.version || 'unknown';
+            console.log(`📥 Importing format v${version} with metadata:`, importMetadata);
+            
+            // Check if this is a cleaned export (v2.1+)
+            if (importMetadata?.fieldsCleaned) {
+                console.log('✅ Importing cleaned format - no field cleanup needed');
+            } else {
+                console.log('⚠️ Importing legacy format - will clean up outdated fields');
+            }
         } else {
             throw new Error('Invalid profiles data format');
         }
 
-        // Validate profiles
+        // Validate and clean profiles
         const validProfiles = profilesToImport.filter(profile => 
             profile.name && profile.fields && Array.isArray(profile.fields)
         );
@@ -696,8 +705,8 @@ class AutoFillBackground {
         // Create mapping from old IDs to new IDs for preserving chains
         const idMapping = new Map();
         
-        // First pass: Generate new IDs and create mapping
-        validProfiles.forEach(profile => {
+        // First pass: Generate new IDs, create mapping, and clean outdated fields
+        const cleanedProfiles = validProfiles.map(profile => {
             const oldId = profile.id;
             const newId = this.generateProfileId();
             
@@ -705,17 +714,33 @@ class AutoFillBackground {
                 idMapping.set(oldId, newId);
             }
             
-            profile.id = newId;
-            profile.importedAt = Date.now();
+            // Clean profile - only keep current fields
+            const cleanedProfile = {
+                id: newId,
+                name: profile.name || '',
+                description: profile.description || '',
+                shortcut: profile.shortcut || '',
+                autoFillOfficeForms: profile.autoFillOfficeForms || false,
+                nextProfileId: profile.nextProfileId || null,
+                fields: profile.fields || [],
+                displayOrder: typeof profile.displayOrder === 'number' ? profile.displayOrder : this.getNextDisplayOrder(),
+                createdAt: profile.createdAt || Date.now(),
+                updatedAt: profile.updatedAt || Date.now(),
+                importedAt: Date.now()
+            };
             
-            // Add displayOrder if not present
-            if (typeof profile.displayOrder !== 'number') {
-                profile.displayOrder = this.getNextDisplayOrder();
-            }
+            // Clean fields - only include necessary properties
+            cleanedProfile.fields = cleanedProfile.fields.map(field => ({
+                name: field.name || '',
+                type: field.type || 'text',
+                value: field.value || ''
+            }));
+            
+            return cleanedProfile;
         });
 
         // Second pass: Update nextProfileId references using the mapping
-        validProfiles.forEach(profile => {
+        cleanedProfiles.forEach(profile => {
             if (profile.nextProfileId && idMapping.has(profile.nextProfileId)) {
                 profile.nextProfileId = idMapping.get(profile.nextProfileId);
                 console.log(`✅ Updated chain: ${profile.name} -> ${profile.nextProfileId}`);
@@ -727,23 +752,17 @@ class AutoFillBackground {
         });
 
         // Log import statistics
-        const chainsFound = validProfiles.filter(p => p.nextProfileId).length;
+        const chainsFound = cleanedProfiles.filter(p => p.nextProfileId).length;
         const importStats = {
-            imported: validProfiles.length,
+            imported: cleanedProfiles.length,
             chains: chainsFound,
-            metadata: importMetadata
+            metadata: importMetadata,
+            cleaned: true // Indicate that profiles were cleaned during import
         };
         
-        console.log(`📊 Import completed: ${validProfiles.length} profiles, ${chainsFound} chains preserved`);
-        
-        if (importMetadata && importMetadata.chains) {
-            console.log(`📈 Original chains in export: ${importMetadata.chains.length}`);
-            importMetadata.chains.forEach(chain => {
-                console.log(`   🔗 Chain: ${chain.startProfile} (${chain.length} profiles): ${chain.profiles.join(' → ')}`);
-            });
-        }
+        console.log(`📊 Import completed: ${cleanedProfiles.length} profiles, ${chainsFound} chains preserved (cleaned format)`);
 
-        this.profiles = [...this.profiles, ...validProfiles];
+        this.profiles = [...this.profiles, ...cleanedProfiles];
         await this.saveProfiles();
         
         return importStats;
@@ -758,19 +777,45 @@ class AutoFillBackground {
 
     // Export/Import Methods
     prepareExportData() {
+        // Clean profiles for export - only include relevant fields
+        const cleanedProfiles = this.profiles.map(profile => {
+            const cleanedProfile = {
+                id: profile.id,
+                name: profile.name,
+                description: profile.description || '',
+                shortcut: profile.shortcut || '',
+                autoFillOfficeForms: profile.autoFillOfficeForms || false,
+                nextProfileId: profile.nextProfileId || null,
+                fields: profile.fields || [],
+                displayOrder: profile.displayOrder || 0,
+                createdAt: profile.createdAt || Date.now(),
+                updatedAt: profile.updatedAt || Date.now()
+            };
+            
+            // Clean fields - only include necessary properties
+            cleanedProfile.fields = cleanedProfile.fields.map(field => ({
+                name: field.name || '',
+                type: field.type || 'text',
+                value: field.value || ''
+            }));
+            
+            return cleanedProfile;
+        });
+
         // Prepare export data with metadata about chains
         const exportData = {
-            profiles: [...this.profiles], // Copy profiles
+            profiles: cleanedProfiles,
             metadata: {
                 exportDate: new Date().toISOString(),
-                version: '2.0',
+                version: '2.1',
                 totalProfiles: this.profiles.length,
                 profilesWithChains: this.profiles.filter(p => p.nextProfileId).length,
-                chains: this.analyzeChains()
+                chains: this.analyzeChains(),
+                fieldsCleaned: true // Indicate that export contains only current fields
             }
         };
 
-        console.log(`📤 Preparing export: ${exportData.metadata.totalProfiles} profiles, ${exportData.metadata.profilesWithChains} with chains`);
+        console.log(`📤 Preparing export: ${exportData.metadata.totalProfiles} profiles, ${exportData.metadata.profilesWithChains} with chains (cleaned format v${exportData.metadata.version})`);
         return exportData;
     }
 

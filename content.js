@@ -116,7 +116,7 @@
             if (filledCount > 0) {
                 setTimeout(() => {
                     this.clickNextButton();
-                }, 1000);
+                }, 500);
             }
 
             this.isProcessing = false;
@@ -261,7 +261,7 @@
                     element.dispatchEvent(new Event('change', { bubbles: true }));
                     
                     console.log(`   ✅ Date input filled successfully with: "${formattedDate}"`);
-                }, 200);
+                }, 100);
                 
                 return true;
                 
@@ -330,13 +330,15 @@
 
         // Click next button
         clickNextButton() {
-            console.log('🔍 Looking for Next button...');
+            console.log('🔍 Looking for Next or Submit button...');
             const buttons = document.querySelectorAll('button, input[type="submit"]');
             console.log(`📋 Found ${buttons.length} buttons on page`);
             
             for (const button of buttons) {
                 const text = button.textContent.toLowerCase();
                 console.log(`   🔍 Checking button: "${button.textContent.trim()}"`);
+                
+                // Check for Next button
                 if (text.includes('next') || text.includes('dalej') || text.includes('następny')) {
                     console.log('✅ Found Next button, clicking...');
                     button.click();
@@ -344,8 +346,17 @@
                     console.log('✅ Next button clicked successfully');
                     return true;
                 }
+                
+                // Check for Submit button (for last profile)
+                if (text.includes('submit') || text.includes('отправить') || text.includes('wyślij') || text.includes('wyslij')) {
+                    console.log('✅ Found Submit button (last profile), clicking...');
+                    button.click();
+                    this.showNotification('Отправка формы (последний профиль)...');
+                    console.log('✅ Submit button clicked successfully');
+                    return true;
+                }
             }
-            console.log('❌ No Next button found');
+            console.log('❌ No Next or Submit button found');
             return false;
         }
 
@@ -424,7 +435,7 @@
             element.style.boxShadow = '0 0 10px #4CAF50';
             setTimeout(() => {
                 element.style.boxShadow = originalStyle;
-            }, 2000);
+            }, 1000);
         }
 
         // Show notification
@@ -450,21 +461,126 @@
                 if (notification.parentNode) {
                     notification.remove();
                 }
-            }, 3000);
+            }, 1500);
         }
 
         // Check for auto-fill
         checkForAutoFill() {
-            setTimeout(() => {
-                chrome.runtime.sendMessage({ action: 'getProfiles' }, (response) => {
-                    if (response && response.success && response.profiles) {
-                        const autoFillProfile = response.profiles.find(p => p.autoFill);
-                        if (autoFillProfile) {
-                            this.fillForm(autoFillProfile);
-                        }
+            chrome.runtime.sendMessage({ action: 'getProfiles' }, (response) => {
+                if (response && response.success && response.profiles) {
+                    // Check for Microsoft Forms auto-fill profiles
+                    const autoFillProfile = response.profiles.find(p => p.autoFillOfficeForms);
+                    if (autoFillProfile && this.isMicrosoftFormsSite()) {
+                        console.log('🚀 Auto-filling Microsoft Forms with profile:', autoFillProfile.name);
+                        this.waitForFormElements(() => {
+                            this.fillFormWithChain(autoFillProfile);
+                        });
                     }
-                });
-            }, 1000);
+                }
+            });
+        }
+
+        // Wait for form elements to be available
+        waitForFormElements(callback, maxAttempts = 10, attempt = 0) {
+            const formElements = document.querySelectorAll('input, textarea, select');
+            const hasVisibleElements = Array.from(formElements).some(el => this.isVisible(el));
+            
+            if (hasVisibleElements || attempt >= maxAttempts) {
+                if (hasVisibleElements) {
+                    console.log('✅ Form elements found, starting auto-fill');
+                } else {
+                    console.log('⚠️ Form elements not found after maximum attempts, starting anyway');
+                }
+                callback();
+            } else {
+                console.log(`⏳ Waiting for form elements... (attempt ${attempt + 1}/${maxAttempts})`);
+                setTimeout(() => {
+                    this.waitForFormElements(callback, maxAttempts, attempt + 1);
+                }, 200);
+            }
+        }
+
+        // Check if current site is Microsoft Forms
+        isMicrosoftFormsSite() {
+            const hostname = window.location.hostname;
+            return hostname.includes('forms.office') || 
+                   hostname.includes('forms.cloud.microsoft') ||
+                   hostname.includes('forms.microsoft');
+        }
+
+        // Fill form with chain support
+        fillFormWithChain(profile) {
+            if (this.isProcessing) return;
+            
+            this.isProcessing = true;
+            console.log('🚀 Starting form fill with profile:', profile.name);
+            console.log('📋 Profile has', profile.fields.length, 'fields to fill');
+
+            let filledCount = 0;
+            const totalFields = profile.fields.length;
+            const results = [];
+
+            profile.fields.forEach((field, index) => {
+                console.log(`\n🔄 Processing field ${index + 1}/${totalFields}:`, field.name);
+                console.log('   📝 Type:', field.type);
+                console.log('   💾 Value:', field.value);
+                
+                const element = this.findFieldElement(field);
+                if (element) {
+                    console.log('   ✅ Element found:', element.tagName, element.type || 'no-type');
+                    const success = this.fillField(element, field);
+                    if (success) {
+                        filledCount++;
+                        results.push({ field: field.name, success: true });
+                        console.log(`   ✅ Successfully filled: ${field.name}`);
+                        this.highlightElement(element);
+                    } else {
+                        results.push({ field: field.name, success: false });
+                        console.warn(`   ❌ Failed to fill: ${field.name}`);
+                    }
+                } else {
+                    results.push({ field: field.name, success: false, error: 'Element not found' });
+                    console.warn(`   🚫 Element not found for: ${field.name}`);
+                }
+            });
+
+            console.log(`\n📊 Form fill completed: ${filledCount}/${totalFields} fields filled`);
+            console.log('📈 Success rate:', `${Math.round((filledCount / totalFields) * 100)}%`);
+            console.log('🎯 Results summary:', results.map(r => `${r.field}: ${r.success ? '✅' : '❌'}`).join(', '));
+
+            this.showNotification(`Заполнено ${filledCount} из ${totalFields} полей`);
+            
+            // Auto-click button after delay
+            if (filledCount > 0) {
+                setTimeout(() => {
+                    this.clickNextButton();
+                    
+                    // If profile has next profile, continue chain
+                    if (profile.nextProfileId) {
+                        setTimeout(() => {
+                            this.continueChain(profile.nextProfileId);
+                        }, 300); // Short delay for page transition
+                    }
+                }, 500);
+            }
+
+            this.isProcessing = false;
+        }
+
+        // Continue chain with next profile
+        continueChain(nextProfileId) {
+            console.log('🔗 Continuing chain with next profile:', nextProfileId);
+            chrome.runtime.sendMessage({ action: 'getProfiles' }, (response) => {
+                if (response && response.success && response.profiles) {
+                    const nextProfile = response.profiles.find(p => p.id === nextProfileId);
+                    if (nextProfile) {
+                        console.log('🔗 Found next profile in chain:', nextProfile.name);
+                        this.fillFormWithChain(nextProfile);
+                    } else {
+                        console.warn('🔗 Next profile not found in chain:', nextProfileId);
+                    }
+                }
+            });
         }
     }
 
