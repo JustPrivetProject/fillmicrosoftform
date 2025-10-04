@@ -185,10 +185,8 @@
         }
         
         // Try to click Next button after successful filling with delay
-        if (fieldsFilled > 0) {
-            setTimeout(() => {
-                clickNextButton();
-            }, 1000); // 1.5 second delay before clicking Next
+        if (fieldsFilled > 0) { 
+                clickNextButton(); 
         }
         
         return {
@@ -562,89 +560,36 @@
      * @param {Element} element - Date input element
      * @param {string} value - Date value to fill (in format DD.MM.YYYY or similar)
      */
-    function fillDateInput(element, value) {
-        console.log(`📅 Filling date field with value: "${value}"`);
-        
-        try {
-            // Detect date format from placeholder
-            const placeholder = element.placeholder || element.getAttribute('placeholder') || '';
-            console.log(`   📋 Detected placeholder: "${placeholder}"`);
-            
-            const formatType = detectDateFormat(placeholder);
-            console.log(`   🔍 Detected format type: ${formatType}`);
-            
-            // Parse and format the date according to detected format
-            const formattedDate = formatDateForInput(value, formatType);
-            console.log(`   ✏️ Formatted date: "${formattedDate}"`);
-            
-            const dateToInput = formattedDate || value;
-            
-            // Step 1: First click to focus
-            console.log(`   🖱️ Step 1: First click to focus the field`);
-            element.focus();
-            element.click();
-            
-            // Step 2: Wait a bit, then second click
-            setTimeout(() => {
-                console.log(`   🖱️ Step 2: Second click to activate text input mode`);
-                element.click();
-                
-                // Step 3: Wait a bit more, then input the date
-                setTimeout(() => {
-                    console.log(`   ⌨️ Step 3: Inputting date "${dateToInput}"`);
-                    
-                    // Clear any existing value first
-                    element.value = '';
-                    
-                    // Set the date value
-                    element.value = dateToInput;
-                    
-                    // Trigger input events
-                    element.dispatchEvent(new Event('input', { bubbles: true }));
-                    element.dispatchEvent(new Event('change', { bubbles: true }));
-                    
-                    // Step 4: Press Enter or Tab to confirm
-                    setTimeout(() => {
-                        console.log(`   ✅ Step 4: Confirming input with Enter key`);
-                        
-                        const enterEvent = new KeyboardEvent('keydown', {
-                            key: 'Enter',
-                            keyCode: 13,
-                            which: 13,
-                            bubbles: true,
-                            cancelable: true
-                        });
-                        element.dispatchEvent(enterEvent);
-                        
-                        // Also try Tab key as alternative
-                        const tabEvent = new KeyboardEvent('keydown', {
-                            key: 'Tab',
-                            keyCode: 9,
-                            which: 9,
-                            bubbles: true,
-                            cancelable: true
-                        });
-                        element.dispatchEvent(tabEvent);
-                        
-                        // Final blur to complete the input
-                        element.blur();
-                        
-                        console.log(`   ✅ Successfully filled date field with: "${dateToInput}"`);
-                    }, 100);
-                    
-                }, 150);
-                
-            }, 100);
-            
-            return true;
-            
-        } catch (error) {
-            console.error('Error filling date input:', error);
-            // Fallback to text input filling
-            return fillTextInput(element, value);
-        }
-    }
+function fillDateInput(element, value) {
+    try {
+        const placeholder = element.placeholder || '';
+        const formatType = detectDateFormat(placeholder);
+        const formattedDate = formatDateForInput(value, formatType) || value;
 
+        console.log(`📅 Filling date: "${formattedDate}"`);
+
+        // Сделать так, чтобы React «увидел» изменение
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype,
+            "value"
+        ).set;
+
+        nativeInputValueSetter.call(element, formattedDate);
+
+        // Сгенерировать события как будто пользователь реально вводил
+        element.dispatchEvent(new Event("input", { bubbles: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+
+        // Потерять фокус, чтобы зафиксировалось
+        element.blur();
+
+        console.log(`✅ Done: ${formattedDate}`);
+        return true;
+    } catch (err) {
+        console.error("Date fill failed:", err);
+        return false;
+    }
+}
     /**
      * Detect date format from placeholder text
      * @param {string} placeholder - Placeholder text
