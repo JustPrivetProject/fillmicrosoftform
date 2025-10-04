@@ -161,13 +161,14 @@ class AutoFillManager {
         document.querySelectorAll('.modal-close').forEach(btn => {
             btn.addEventListener('click', () => this.hideModal());
         });
-        document.getElementById('detectField').addEventListener('click', () => this.detectField());
         
         // Field type change handler
         document.getElementById('fieldType').addEventListener('change', (e) => this.handleFieldTypeChange(e));
         
-        // Show selector checkbox handler
-        document.getElementById('showSelectorCheckbox').addEventListener('change', () => this.handleSelectorCheckboxChange());
+        
+        // Action button handlers
+        document.getElementById('nextButton').addEventListener('click', () => this.selectActionButton('next'));
+        document.getElementById('submitButton').addEventListener('click', () => this.selectActionButton('submit'));
         
         // Global keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboardShortcut(e));
@@ -271,6 +272,8 @@ class AutoFillManager {
                 ${profile.description ? `<div class="profile-description">${this.escapeHtml(profile.description)}</div>` : ''}
                 <div class="profile-info">
                     <span class="profile-fields">${profile.fields.length} полей</span>
+                    ${profile.autoFillOfficeForms ? `<span class="profile-auto">⚡ Автозаполнение на Microsoft Forms</span>` : ''}
+                    ${profile.buttonAction && profile.buttonAction !== 'auto' ? `<span class="profile-action">🎯 ${this.getButtonActionText(profile.buttonAction)}</span>` : ''}
                     ${nextProfile ? `<span class="profile-chain">→ ${this.escapeHtml(nextProfile.name)}</span>` : ''}
                 </div>
                 <div class="profile-actions">
@@ -335,10 +338,13 @@ class AutoFillManager {
             name: '',
             description: '',
             shortcut: '',
+            autoFillOfficeForms: false,
+            buttonAction: 'next',
             nextProfileId: null,
             fields: [],
             displayOrder: this.getNextDisplayOrder()
         };
+        this.selectedButtonAction = 'next';
         this.showEditorView();
         this.renderProfileEditor();
         document.getElementById('deleteProfile').style.display = 'none';
@@ -380,6 +386,22 @@ class AutoFillManager {
         document.getElementById('profileName').value = this.currentProfile.name;
         document.getElementById('profileDescription').value = this.currentProfile.description;
         document.getElementById('keyboardShortcut').value = this.currentProfile.shortcut || '';
+        document.getElementById('autoFillOfficeForms').checked = this.currentProfile.autoFillOfficeForms || false;
+        
+        // Set button action based on profile's buttonAction
+        const buttonAction = this.currentProfile.buttonAction || 'next';
+        this.selectedButtonAction = buttonAction;
+        
+        // Update button states
+        document.querySelectorAll('.action-button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        if (buttonAction === 'next') {
+            document.getElementById('nextButton').classList.add('active');
+        } else if (buttonAction === 'submit') {
+            document.getElementById('submitButton').classList.add('active');
+        }
         
         // Populate next profile dropdown
         this.populateNextProfileDropdown();
@@ -451,8 +473,8 @@ class AutoFillManager {
             <div class="field-item">
                 <div class="field-info">
                     <div class="field-name">${this.escapeHtml(field.name)} (${this.escapeHtml(field.type)})</div>
-                    <div class="field-details${field.type === 'button' ? ' button' : (!field.value ? ' empty' : '')}">
-                        ${field.type === 'button' ? '🖱️ Кнопка для клика' : `💬 ${this.escapeHtml(field.value || 'Не задано')}`}
+                    <div class="field-details${!field.value ? ' empty' : ''}">
+                        💬 ${this.escapeHtml(field.value || 'Не задано')}
                     </div>
                 </div>
                 <div class="field-actions">
@@ -509,34 +531,21 @@ class AutoFillManager {
         const modal = document.getElementById('fieldModal');
         const isEditing = fieldIndex >= 0;
         
-        // Clear temporary selector value
-        this.tempSelectorValue = undefined;
-        
         document.getElementById('fieldModalTitle').textContent = isEditing ? 'Редактировать поле' : 'Добавить поле';
         
         if (isEditing) {
             const field = this.currentProfile.fields[fieldIndex];
             document.getElementById('fieldName').value = field.name;
             document.getElementById('fieldType').value = field.type;
-            document.getElementById('fieldSelector').value = field.selector || '';
             document.getElementById('fieldValue').value = field.value;
-            
-            // Set checkbox state based on whether selector exists
-            const showSelector = !!(field.selector && field.selector.trim());
-            document.getElementById('showSelectorCheckbox').checked = showSelector;
         } else {
             document.getElementById('fieldName').value = '';
             document.getElementById('fieldType').value = 'text';
-            document.getElementById('fieldSelector').value = '';
             document.getElementById('fieldValue').value = '';
-            document.getElementById('showSelectorCheckbox').checked = false;
         }
         
         // Update visibility of value field based on type
         this.handleFieldTypeChange({ target: { value: document.getElementById('fieldType').value } });
-        
-        // Update visibility of selector field based on checkbox
-        this.handleSelectorCheckboxChange();
         
         modal.classList.add('active');
     }
@@ -544,49 +553,39 @@ class AutoFillManager {
     hideModal() {
         document.getElementById('fieldModal').classList.remove('active');
         this.editingFieldIndex = -1;
-        // Clear temporary selector value
-        this.tempSelectorValue = undefined;
     }
     
     handleFieldTypeChange(e) {
         const fieldType = e.target.value;
         const valueGroup = document.querySelector('#fieldValue').closest('.input-group');
         
-        if (fieldType === 'button') {
-            // Hide value field for buttons
-            valueGroup.style.display = 'none';
-        } else {
-            // Show value field for other types
-            valueGroup.style.display = 'block';
-        }
+        // Always show value field for our simplified types
+        valueGroup.style.display = 'block';
     }
     
-    handleSelectorCheckboxChange() {
-        const checkbox = document.getElementById('showSelectorCheckbox');
-        const selectorGroup = document.getElementById('selectorGroup');
-        const selectorInput = document.getElementById('fieldSelector');
+    
+    selectActionButton(action) {
+        // Remove active class from all action buttons
+        document.querySelectorAll('.action-button').forEach(btn => {
+            btn.classList.remove('active');
+        });
         
-        if (checkbox.checked) {
-            selectorGroup.style.display = 'block';
-            // Restore saved value if it exists
-            if (this.tempSelectorValue !== undefined) {
-                selectorInput.value = this.tempSelectorValue;
-            }
-        } else {
-            // Save current value before hiding
-            this.tempSelectorValue = selectorInput.value;
-            selectorGroup.style.display = 'none';
+        // Add active class to selected button
+        if (action === 'next') {
+            document.getElementById('nextButton').classList.add('active');
+            this.selectedButtonAction = 'next';
+        } else if (action === 'submit') {
+            document.getElementById('submitButton').classList.add('active');
+            this.selectedButtonAction = 'submit';
         }
     }
     
     saveField() {
         const fieldType = document.getElementById('fieldType').value;
-        const showSelectorChecked = document.getElementById('showSelectorCheckbox').checked;
         const field = {
             name: document.getElementById('fieldName').value.trim(),
             type: fieldType,
-            selector: showSelectorChecked ? document.getElementById('fieldSelector').value.trim() : '',
-            value: fieldType === 'button' ? '' : document.getElementById('fieldValue').value,
+            value: document.getElementById('fieldValue').value,
             required: false
         };
         
@@ -647,6 +646,8 @@ class AutoFillManager {
         
         this.currentProfile.name = name;
         this.currentProfile.description = document.getElementById('profileDescription').value.trim();
+        this.currentProfile.autoFillOfficeForms = document.getElementById('autoFillOfficeForms').checked;
+        this.currentProfile.buttonAction = this.selectedButtonAction || 'next';
         const selectedShortcut = document.getElementById('keyboardShortcut').value;
         
         // Check if shortcut is already used by another profile
@@ -918,62 +919,6 @@ class AutoFillManager {
         event.target.value = '';
     }
     
-    detectField() {
-        const fieldName = document.getElementById('fieldName').value.trim();
-        if (!fieldName) {
-            this.showStatus('Введите название поля przed wykrywaniem', 'error');
-            return;
-        }
-        
-        // Generate XPath selector based on field name
-        const xpathSelector = this.generateXPathSelector(fieldName);
-        document.getElementById('fieldSelector').value = xpathSelector;
-        this.showStatus('Wygenerowano selektor XPath', 'success');
-    }
-    
-    generateXPathSelector(fieldName) {
-        // Get the selected field type to generate appropriate selector
-        const fieldType = document.getElementById('fieldType').value;
-        
-        // Special handling for radio buttons using the provided selector pattern
-        if (fieldType === 'radio') {
-            // Return the selector template that will be used with actual option values
-            return `//div[.//span[contains(text(), '${fieldName}')]]//label[.//span[contains(text(), 'OPTION_VALUE')]]//input[@type='radio']`;
-        }
-        
-        // Special handling for date fields using the Microsoft DatePicker structure
-        if (fieldType === 'date') {
-            return `//div[@data-automation-id="questionItem"][.//span[contains(@class, "text-format-content") and contains(text(), "${fieldName}")]]//input[@type="text"][@role="combobox"]`;
-        }
-        
-        const elementSelector = this.getElementSelectorForType(fieldType);
-        
-        // Generate the main XPath pattern based on your specification
-        return `//span[normalize-space(text())="${fieldName}"]//ancestor::div[contains(@data-automation-id,"questionItem")]${elementSelector}`;
-    }
-    
-    getElementSelectorForType(fieldType) {
-        switch(fieldType) {
-            case 'textarea':
-                return '//textarea';
-            case 'select':
-                return '//select | //div[@role="listbox"]';
-            case 'radio':
-                return '//label[.//span[contains(text(), "OPTION_VALUE")]]//input[@type="radio"]';
-            case 'checkbox':
-                return '//div[@role="checkbox"] | //input[@type="checkbox"]';
-            case 'date':
-                return '//input[@type="date"]';
-            case 'number':
-                return '//input[@type="number"]';
-            case 'email':
-                return '//input[@type="email"] | //input[@type="text"]';
-            case 'button':
-                return '//button | //input[@type="button"] | //input[@type="submit"] | //div[@role="button"]';
-            default:
-                return '//input';
-        }
-    }
     
     showStatus(message, type) {
         const statusEl = document.getElementById('statusMessage');
@@ -1043,6 +988,15 @@ class AutoFillManager {
         });
         
         this.showStatus(`Ошибка загрузки профилей: ${error || 'Неизвестная ошибка'}`, 'error');
+    }
+    
+    getButtonActionText(action) {
+        switch(action) {
+            case 'next': return 'Следующий';
+            case 'submit': return 'Отправить';
+            case 'auto': return 'Auto';
+            default: return action;
+        }
     }
     
     escapeHtml(text) {

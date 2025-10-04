@@ -660,4 +660,40 @@ textarea {
     margin-bottom: 20px;
 }
 
+/* Action Button Group Styles */
+.button-group {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+.action-button {
+    flex: 1;
+    padding: 8px 16px;
+    border: 2px solid #6c757d;
+    background: white;
+    color: #6c757d;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 13px;
+}
+
+.action-button:hover {
+    background: #f8f9fa;
+    border-color: #5a6268;
+    color: #5a6268;
+}
+
+.action-button.active {
+    background: #2196F3;
+    border-color: #2196F3;
+    color: white;
+}
+
+.action-button.active:hover {
+    background: #1976D2;
+    border-color: #1976D2;
+}
+
 /* Desktop only - no responsive design needed for Chrome extension */

@@ -77,6 +77,22 @@
                 </div>
                 
                 <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="autoFillOfficeForms"> Автозаполнение на Microsoft Forms
+                    </label>
+                    <small class="field-hint">Профиль будет автоматически заполнять форму при загрузке страницы на forms.office.com и forms.cloud.microsoft.com</small>
+                </div>
+                
+                <div class="input-group">
+                    <label>Действие после заполнения:</label>
+                    <div class="button-group">
+                        <button type="button" id="nextButton" class="btn btn-secondary action-button">Следующий</button>
+                        <button type="button" id="submitButton" class="btn btn-secondary action-button">Отправить</button>
+                    </div>
+                    <small class="field-hint">Выберите, что делать после заполнения всех полей</small>
+                </div>
+                
+                <div class="input-group">
                     <label for="nextProfile">Następny profil w łańcuchu:</label>
                     <select id="nextProfile">
                         <option value="">Bez następnego profilu</option>
@@ -120,30 +136,12 @@
                     <div class="input-group">
                         <label for="fieldType">Тип поля:</label>
                         <select id="fieldType">
-                            <option value="text">Текст</option>
-                            <option value="email">Email</option>
-                            <option value="phone">Телефон</option>
-                            <option value="number">Число</option>
-                            <option value="date">Дата</option>
-                            <option value="textarea">Многострочный текст</option>
-                            <option value="select">Список выбора</option>
-                            <option value="radio">Переключатель</option>
-                            <option value="checkbox">Флажок</option>
-                            <option value="button">Кнопка</option>
+                            <option value="text">Text</option>
+                            <option value="radio">Radio</option>
+                            <option value="date">Date</option>
                         </select>
                     </div>
                     
-                    <div class="input-group">
-                        <label>
-                            <input type="checkbox" id="showSelectorCheckbox"> Показать селектор
-                        </label>
-                    </div>
-                    
-                    <div class="input-group" id="selectorGroup" style="display: none;">
-                        <label for="fieldSelector">Селектор поля (CSS/XPath):</label>
-                        <input type="text" id="fieldSelector" placeholder="//span[normalize-space(text())='Имя']//following::input[1]">
-                        <button id="detectField" class="btn btn-small">Сгенерировать XPath</button>
-                    </div>
                     
                     <div class="input-group">
                         <label for="fieldValue">Значение для заполнения:</label>
