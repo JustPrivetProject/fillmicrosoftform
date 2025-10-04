@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Google Forms AutoFill",
+  "version": "2.0",
+  "description": "Zaawansowany system automatycznego wypełniania formularzy Google z zarządzaniem profilami",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "contextMenus"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Google Forms AutoFill"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://docs.google.com/forms/*",
+        "https://forms.google.com/*",
+        "<all_urls>"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "host_permissions": [
+    "https://docs.google.com/*",
+    "https://forms.google.com/*",
+    "file:///*"
+  ],
+  "commands": {
+    "detect-fields": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+D"
+      },
+      "description": "Найти поля формы"
+    },
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+A"
+      }
+    },
+    "show-help": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+H"
+      },
+      "description": "Pokaż pomoc z skrótami klawiszowymi"
+    }
+  }
+}

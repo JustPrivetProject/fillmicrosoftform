@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Forms AutoFill</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Main View: Profile List -->
+        <div id="mainView" class="view active">
+            <div class="header">
+                <h1>AutoFill Profile</h1>
+                <button id="createProfileBtn" class="btn btn-create">+ Новый профиль</button>
+            </div>
+            
+            <div class="search-section">
+                <input type="text" id="searchProfiles" placeholder="Поиск профилей..." class="search-input">
+            </div>
+            
+            <div id="profilesList" class="profiles-list">
+                <!-- Profiles will be loaded here -->
+            </div>
+            
+            <div class="quick-actions">
+                <button id="exportBtn" class="btn btn-secondary">Экспорт профилей</button>
+                <button id="importBtn" class="btn btn-secondary">Импорт профилей</button>
+                <button id="deleteAllBtn" class="btn btn-danger">Удалить все профили</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;">
+            </div>
+        </div>
+
+        <!-- Profile Editor View -->
+        <div id="editorView" class="view">
+            <div class="header">
+                <button id="backToMain" class="btn btn-back">← Назад</button>
+                <h1 id="editorTitle">Новый профиль</h1>
+            </div>
+            
+            <div class="editor-section">
+                <div class="input-group">
+                    <label for="profileName">Название профиля:</label>
+                    <input type="text" id="profileName" placeholder="например, Личный профиль">
+                </div>
+                
+                <div class="input-group">
+                    <label for="profileDescription">Описание (необязательно):</label>
+                    <textarea id="profileDescription" placeholder="Описание профиля..."></textarea>
+                </div>
+                
+                <div class="input-group">
+                    <label for="keyboardShortcut">Gorąca klawisz (Alt+):</label>
+                    <select id="keyboardShortcut">
+                        <option value="">Bez skrótu klawiszowego</option>
+                        <option value="Alt+1">1</option>
+                        <option value="Alt+2">2</option>
+                        <option value="Alt+3">3</option>
+                        <option value="Alt+4">4</option>
+                        <option value="Alt+5">5</option>
+                        <option value="Alt+6">6</option>
+                        <option value="Alt+7">7</option>
+                        <option value="Alt+8">8</option>
+                        <option value="Alt+9">9</option>
+                        <option value="Alt+0">0</option>
+                        <option value="Alt+Q">Q</option>
+                        <option value="Alt+W">W</option>
+                        <option value="Alt+E">E</option>
+                        <option value="Alt+R">R</option>
+                        <option value="Alt+T">T</option>
+                        <option value="Alt+Y">Y</option>
+                        <option value="Alt+U">U</option>
+                        <option value="Alt+I">I</option>
+                        <option value="Alt+O">O</option>
+                        <option value="Alt+P">P</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="nextProfile">Następny profil w łańcuchu:</label>
+                    <select id="nextProfile">
+                        <option value="">Bez następnego profilu</option>
+                        <!-- Profile options will be populated dynamically -->
+                    </select>
+                    <small class="field-hint">Po wypełnieniu tego profilu automatycznie uruchomi się wybrany następny profil</small>
+                </div>
+            </div>
+
+            <div class="fields-section">
+                <div class="section-header">
+                    <h2>Поля для заполнения</h2>
+                    <button id="addFieldBtn" class="btn btn-create">+ Добавить поле</button>
+                </div>
+                
+                <div id="fieldsList" class="fields-list">
+                    <!-- Fields will be loaded here -->
+                </div>
+            </div>
+
+            <div class="editor-actions">
+                <button id="saveProfile" class="btn btn-save">Сохранить профиль</button>
+                <button id="deleteProfile" class="btn btn-delete" style="display: none;">Удалить профиль</button>
+            </div>
+        </div>
+
+        <!-- Field Editor Modal -->
+        <div id="fieldModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="fieldModalTitle">Добавить поле</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="input-group">
+                        <label for="fieldName">Название поля:</label>
+                        <input type="text" id="fieldName" placeholder="например, Имя">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="fieldType">Тип поля:</label>
+                        <select id="fieldType">
+                            <option value="text">Текст</option>
+                            <option value="email">Email</option>
+                            <option value="phone">Телефон</option>
+                            <option value="number">Число</option>
+                            <option value="date">Дата</option>
+                            <option value="textarea">Многострочный текст</option>
+                            <option value="select">Список выбора</option>
+                            <option value="radio">Переключатель</option>
+                            <option value="checkbox">Флажок</option>
+                            <option value="button">Кнопка</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="showSelectorCheckbox"> Показать селектор
+                        </label>
+                    </div>
+                    
+                    <div class="input-group" id="selectorGroup" style="display: none;">
+                        <label for="fieldSelector">Селектор поля (CSS/XPath):</label>
+                        <input type="text" id="fieldSelector" placeholder="//span[normalize-space(text())='Имя']//following::input[1]">
+                        <button id="detectField" class="btn btn-small">Сгенерировать XPath</button>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="fieldValue">Значение для заполнения:</label>
+                        <textarea id="fieldValue" placeholder="Введите значение..."></textarea>
+                    </div>
+                    
+
+                </div>
+                
+                <div class="modal-footer">
+                    <button id="saveField" class="btn btn-save">Сохранить поле</button>
+                    <button class="btn btn-cancel modal-close">Отмена</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-message" id="statusMessage"></div>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>
