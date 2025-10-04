@@ -152,7 +152,7 @@
         getElementType(fieldType) {
             switch (fieldType) {
                 case 'radio': return 'input[@type="radio"]';
-                case 'date': return 'input[@type="text"][@role="combobox"]';
+                case 'date': return 'input';
                 default: return 'input';
             }
         }
@@ -240,20 +240,29 @@
                 const formattedDate = this.formatDateByPlaceholder(value, placeholder);
                 console.log(`   📅 Formatted date: "${formattedDate}"`);
                 
-                // Focus the element first
-                element.focus();
+                // Click to open calendar first (many date pickers require this)
+                console.log(`   📅 Clicking to open calendar...`);
+                element.click();
                 
-                // Clear existing value
-                element.value = '';
+                // Wait a bit for calendar to open
+                setTimeout(() => {
+                    // Focus the element
+                    element.focus();
+                    element.select();
+                    
+                    // Clear existing value
+                    element.value = '';
+                    
+                    // Set the formatted value
+                    element.value = formattedDate;
+                    
+                    // Trigger basic events
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    element.dispatchEvent(new Event('change', { bubbles: true }));
+                    
+                    console.log(`   ✅ Date input filled successfully with: "${formattedDate}"`);
+                }, 200);
                 
-                // Set the formatted value
-                element.value = formattedDate;
-                
-                // Trigger basic events
-                element.dispatchEvent(new Event('input', { bubbles: true }));
-                element.dispatchEvent(new Event('change', { bubbles: true }));
-                
-                console.log(`   ✅ Date input filled successfully with: "${formattedDate}"`);
                 return true;
                 
             } catch (error) {
@@ -276,16 +285,32 @@
             const format = formatMatch[1];
             console.log(`   📅 Detected format: "${format}"`);
             
-            // Parse input date (assume DD.MM.YYYY or DD/MM/YYYY format)
+            // Parse input date - try to detect format automatically
             let day, month, year;
             
             if (dateValue.includes('.') || dateValue.includes('/') || dateValue.includes('-')) {
                 const parts = dateValue.split(/[.\/-]/).filter(part => part.length > 0);
                 if (parts.length === 3) {
-                    // Assume DD.MM.YYYY format
-                    day = parts[0].padStart(2, '0');
-                    month = parts[1].padStart(2, '0');
-                    year = parts[2];
+                    // Try to detect if it's MM/dd/yyyy or dd/MM/yyyy format
+                    const firstPart = parseInt(parts[0]);
+                    const secondPart = parseInt(parts[1]);
+                    
+                    if (firstPart > 12 && secondPart <= 12) {
+                        // First part is day, second is month (dd/MM/yyyy)
+                        day = parts[0].padStart(2, '0');
+                        month = parts[1].padStart(2, '0');
+                        year = parts[2];
+                    } else if (firstPart <= 12 && secondPart > 12) {
+                        // First part is month, second is day (MM/dd/yyyy)
+                        month = parts[0].padStart(2, '0');
+                        day = parts[1].padStart(2, '0');
+                        year = parts[2];
+                    } else {
+                        // Ambiguous case - assume MM/dd/yyyy (US format)
+                        month = parts[0].padStart(2, '0');
+                        day = parts[1].padStart(2, '0');
+                        year = parts[2];
+                    }
                 } else {
                     return dateValue; // Return original if can't parse
                 }
