@@ -114,7 +114,9 @@
             
             // Auto-click button after delay
             if (filledCount > 0) { 
-                    this.clickNextButton(); 
+                        setTimeout(() => {
+                    this.clickNextButton();
+                }, 500);
             }
 
             this.isProcessing = false;
