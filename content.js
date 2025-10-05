@@ -113,10 +113,8 @@
             this.showNotification(`Заполнено ${filledCount} из ${totalFields} полей`);
             
             // Auto-click button after delay
-            if (filledCount > 0) {
-                setTimeout(() => {
-                    this.clickNextButton();
-                }, 500);
+            if (filledCount > 0) { 
+                    this.clickNextButton(); 
             }
 
             this.isProcessing = false;
@@ -339,7 +337,7 @@
                 console.log(`   🔍 Checking button: "${button.textContent.trim()}"`);
                 
                 // Check for Next button
-                if (text.includes('next') || text.includes('dalej') || text.includes('następny')) {
+                if (text.includes('next') || text.includes('dalej') || text.includes('następny')|| text.includes('далее')) {
                     console.log('✅ Found Next button, clicking...');
                     button.click();
                     this.showNotification('Переход к следующей странице...');
@@ -348,7 +346,7 @@
                 }
                 
                 // Check for Submit button (for last profile)
-                if (text.includes('submit') || text.includes('отправить') || text.includes('wyślij') || text.includes('wyslij')) {
+                if (text.includes('submit') || text.includes('отправить') || text.includes('wyślij') || text.includes('wyslij')|| text.includes('отправить')) {
                     console.log('✅ Found Submit button (last profile), clicking...');
                     button.click();
                     this.showNotification('Отправка формы (последний профиль)...');
